@@ -1,0 +1,16 @@
+[
+    {
+        "id": "home",
+        "devName": "Home",
+        "path": "/",
+        "isRoot": true,
+        "view": "home",
+        "label": "Home",
+        "page": {
+            "type": "comm__namedPage",
+            "attributes": {
+                "name": "Home"
+            }
+        }
+    }
+]
