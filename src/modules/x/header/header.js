@@ -16,7 +16,6 @@ export default class Header extends LightningElement {
 
     setActive(active) {
         this.template.querySelectorAll('x-header-link').forEach(el => {
-            console.log(`setting ${el.route} to ${(el.route == active)}`)
             el.active = (el.route == active);
         })
     }
