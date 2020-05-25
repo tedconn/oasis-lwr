@@ -9,7 +9,33 @@
         "page": {
             "type": "comm__namedPage",
             "attributes": {
-                "name": "Home"
+                "name": "home"
+            }
+        }
+    },
+    {
+        "id": "features",
+        "devName": "Features",
+        "path": "/features",
+        "view": "features",
+        "label": "Features",
+        "page": {
+            "type": "comm__namedPage",
+            "attributes": {
+                "name": "features"
+            }
+        }
+    },
+    {
+        "id": "contact",
+        "devName": "Contact",
+        "path": "/contact",
+        "view": "contact",
+        "label": "Contact",
+        "page": {
+            "type": "comm__namedPage",
+            "attributes": {
+                "name": "contact"
             }
         }
     }

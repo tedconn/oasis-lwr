@@ -1,5 +1,6 @@
 {
   "modules": [
-      "src/modules"
+      "src/modules",
+      "@webruntime/navigation"
   ]
 }
