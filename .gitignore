@@ -1,3 +1,4 @@
 node_modules
 dist
 metrics.log
+.DS_Store
