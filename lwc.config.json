@@ -1,6 +1,10 @@
 {
   "modules": [
-      "src/modules",
-      "@webruntime/navigation"
+      {
+          "dir": "src/modules"
+      },
+      {
+          "npm": "@webruntime/navigation"
+      }
   ]
 }
