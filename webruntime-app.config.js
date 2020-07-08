@@ -8,6 +8,12 @@ module.exports = {
     },
     server: {
         port: 3000,
-        basePath: ''
+        basePath: '',
+        contentSecurityPolicy: {
+            directives: {
+                scriptSrc: ['cdn.evgnet.com']
+            },
+            loose: true,
+        }
     }
 };

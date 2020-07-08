@@ -1406,7 +1406,7 @@
         const { eval: redIndirectEval } = redGlobalThis;
         redIndirectEval('window');
         const blueGlobalThis = globalThis;
-        removeIframe(iframe);
+        // removeIframe(iframe);
         const blueRefs = getCachedReferences(blueGlobalThis);
         const redRefs = getCachedReferences(redGlobalThis);
         const env = new SecureEnvironment({
@@ -1450,8 +1450,21 @@
         };
     }
 
+    // local caches
+    const { createElement } = document;
+    const {
+        prepend: originalPrepend,
+        append: originalAppend,
+        appendChild: originalAppendChild,
+        insertBefore: originalInsertBefore,
+    } = Element.prototype;
+    const documentBodyGetter = Reflect.getOwnPropertyDescriptor(
+        Document.prototype,
+        'body'
+    ).get;
+
     function defineExtraGlobal(name, descriptor) {
-        Object.defineProperty(window, name, descriptor);
+        Reflect.defineProperty(window, name, descriptor);
     }
 
     const endowments = Object.create(Object.prototype, {
@@ -1463,10 +1476,79 @@
         }
     });
 
-    const evaluate = createSecureEnvironment(undefined, endowments);
+    function isScriptElement(elm) {
+        return elm && elm instanceof HTMLScriptElement;
+    }
 
-    // const magicIframe = (document.body || document.lastElementChild).lastElementChild;
-    // TODO: patch iframe.contentWindow getter to avoid the magic iframe
+    const patchedAppendChild = function appendChild(child) {
+        if (isScriptElement(child)) {
+            createScriptReflection(child.textContent, child.attributes);
+            return child;
+        }
+        return originalAppendChild.apply(this, arguments);
+    };
+    const patchedInsertBefore = function insertBefore(child) {
+        if (isScriptElement(child)) {
+            createScriptReflection(child.textContent, child.attributes);
+            return child;
+        }
+        return originalInsertBefore.apply(this, arguments);
+    };
+    // TODO: this api accepts a list of arguments
+    const patchedAppend = function append(child) {
+        if (isScriptElement(child)) {
+            createScriptReflection(child.textContent, child.attributes);
+            return;
+        }
+        originalAppend.apply(this, arguments);
+    };
+    // TODO: this api accepts a list of arguments
+    const patchedPrepend = function prepend(child) {
+        if (isScriptElement(child)) {
+            createScriptReflection(child.textContent, child.attributes);
+            return child;
+        }
+        return originalPrepend.apply(this, arguments);
+    };
+
+    const distortionMap = new Map([
+        // Element & Node
+        [originalAppendChild, patchedAppendChild],
+        [originalInsertBefore, patchedInsertBefore],
+        [originalAppend, patchedAppend],
+        [originalPrepend, patchedPrepend],
+        // TODO: document.* as well
+    ]);
+
+    const evaluate = createSecureEnvironment(distortionMap, endowments);
+
+    const magicIframe = (document.body || document.lastElementChild).lastElementChild;
+    const magicDocument = magicIframe.contentDocument;
+    const magicBody = documentBodyGetter.call(magicDocument);
+
+    // patching iframe.contentWindow getter to prevent access to the magic iframe
+    /*const contentWindowDescriptor = Reflect.getOwnPropertyDescriptor(
+        HTMLIFrameElement.prototype,
+        'contentWindow'
+    );
+    const { get: originalContentWindowGetter } = contentWindowDescriptor;
+    contentWindowDescriptor.get = function contentWindow() {
+        if (this === magicIframe) { return null; }
+        return originalContentWindowGetter.call(this);
+    };
+    Reflect.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', contentWindowDescriptor);*/
+
+    // patching iframe.contentDocument getter to prevent access to the magic iframe
+    /*const contentDocumentDescriptor = Reflect.getOwnPropertyDescriptor(
+        HTMLIFrameElement.prototype,
+        'contentDocument'
+    );
+    const { get: originalContentDocumentGetter } = contentDocumentDescriptor;
+    contentDocumentDescriptor.get = function contentWindow() {
+        if (this === magicIframe) { return null; }
+        return originalContentDocumentGetter.call(this);
+    };
+    Reflect.defineProperty(HTMLIFrameElement.prototype, 'contentDocument', contentDocumentDescriptor);*/
 
     evaluate(`
     // This initialization will prevent any of these APIs to be polyfilled
@@ -1487,6 +1569,7 @@
     ].forEach(o => delete o.$);
 `);
 
+    // remap any extra globals between the sandbox and window
     function mapExtraGlobals(names) {
         names.forEach(name => {
             evaluate(`
@@ -1498,32 +1581,58 @@
                 enumerable: true,
                 configurable: true,
             };
-            Object.defineProperty(window, "${name}", descriptor);
-            $oasicExtraGlobal$("${name}", descriptor);
+            const key = \`${name}\`;
+            Object.defineProperty(window, key, descriptor);
+            $oasicExtraGlobal$(key, descriptor);
         `);
         });
+    }
+
+    function createScriptReflection(sourceText, attributes) {
+        const script = createElement.call(magicDocument, 'script');
+        for (let i = 0, len = attributes.length; i < len; i += 1) {
+            const attr = attributes.item(i);
+            script.setAttribute(attr.name, attr.value);
+        }
+        if (sourceText) {
+            script.append(sourceText);
+        }
+        magicBody.appendChild(script);
+    }
+
+    function execute(elm) {
+        if (elm.evaluate) return; // skipping
+        elm.evaluate = true;
+        mapExtraGlobals(elm.extraGlobals);
+        createScriptReflection(elm.textContent, elm.attributes);
     }
 
     class OasisScript extends HTMLElement {
         constructor() {
             super();
-            this.hidden = true;
+            let slot = document.createElement('slot');
+            slot.addEventListener('slotchange', () => execute(this), {
+                once: true // we only care about the first time this receive some content
+            });
+            this.attachShadow({ mode: 'open' }).appendChild(slot);
         }
         get extraGlobals() {
             const names = this.getAttribute('extra-globals');
-            // TODO: filter out invalid property names
             return names ? names.split(',').map(name => name.trim()).filter(name => /\w+/.test(name)) : [];
         }
         set extraGlobals(v) {
             this.setAttribute('extra-globals', v.join(','));
         }
+        get src() {
+            return this.getAttribute('src');
+        }
+        set src(v) {
+            this.setAttribute('src', v);
+        }
         connectedCallback() {
-            // remap any extra globals between the sandbox and window
-            mapExtraGlobals(this.extraGlobals);
-            // evaluate any content in the light DOM into the sandbox
-            const src = this.textContent;
-            if (src) {
-                evaluate(src);
+            const { src } = this;
+            if (src !== null) {
+                execute(this);
             }
         }
     }

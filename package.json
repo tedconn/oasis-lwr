@@ -10,7 +10,7 @@
     "clean": "rm -rf dist",
     "build:public": "cpx \"src/public/**/*\" dist --verbose",
     "build": "yarn clean && yarn build:public",
-    "start": "MODE=\"${MODE:-dev}\" webruntime run .",
+    "start": "MODE=\"${MODE:-dev}\" webruntime run . --no-locker",
     "test:unit": "jest",
     "test": "yarn build && yarn test:unit"
   },
