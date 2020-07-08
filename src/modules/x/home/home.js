@@ -1,5 +1,6 @@
-import { LightningElement } from 'lwc';
+import { LightningElement, api } from 'lwc';
 
 export default class Home extends LightningElement {
 
+    @api title = "Cover your Page";
 }
