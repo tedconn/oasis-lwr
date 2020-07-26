@@ -7,7 +7,7 @@ module.exports = {
         defaultTemplate: 'src/index.html',
     },
     server: {
-        port: 3000,
+        port: +process.env.PORT || 3001,
         basePath: '',
         contentSecurityPolicy: {
             directives: {
