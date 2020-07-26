@@ -17,9 +17,11 @@
   "engines": {
     "node": ">=10.0"
   },
+  "dependencies": {
+    "@communities-webruntime/cli": "0.33.1"
+  },
   "devDependencies": {
     "@communities-webruntime/app": "0.33.1",
-    "@communities-webruntime/cli": "0.33.1",
     "@communities-webruntime/services": "0.33.1",
     "@lwc/compiler": "1.6.2",
     "@lwc/jest-preset": "7.0.0",
