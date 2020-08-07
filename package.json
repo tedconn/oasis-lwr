@@ -11,6 +11,7 @@
     "build:public": "cpx \"src/public/**/*\" dist --verbose",
     "build": "yarn clean && yarn build:public",
     "start": "MODE=\"${MODE:-dev}\" webruntime run . --port=$PORT",
+    "start:local": "MODE=\"${MODE:-dev}\" webruntime run .",
     "test:unit": "jest",
     "test": "yarn build && yarn test:unit"
   },
