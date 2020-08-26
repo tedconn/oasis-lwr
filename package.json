@@ -9,6 +9,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:public": "cpx \"src/public/**/*\" dist --verbose",
+    "build:oasis": "rollup -c scripts/rollup.config.js",
     "build": "yarn clean && yarn build:public",
     "start": "MODE=\"${MODE:-dev}\" webruntime run . --port=$PORT",
     "start:local": "MODE=\"${MODE:-dev}\" webruntime run .",
@@ -28,6 +29,7 @@
     "@communities-webruntime/services": "0.33.22",
     "@lwc/jest-preset": "7.0.0",
     "@lwc/synthetic-shadow": "1.6.2",
+    "@rollup/plugin-node-resolve": "^9.0.0",
     "@webruntime/server": "0.33.22",
     "colors": "^1.4.0",
     "cpx": "^1.5.0",
