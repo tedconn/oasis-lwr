@@ -22,7 +22,8 @@
   "dependencies": {
     "@communities-webruntime/cli": "0.33.22",
     "@lwc/compiler": "1.6.2",
-    "@webruntime/navigation": "0.33.22"
+    "@webruntime/navigation": "0.33.22",
+    "lwc": "1.6.2"
   },
   "devDependencies": {
     "@communities-webruntime/app": "0.33.22",
@@ -33,8 +34,7 @@
     "@webruntime/server": "0.33.22",
     "colors": "^1.4.0",
     "cpx": "^1.5.0",
-    "jest": "25.4.0",
-    "lwc": "1.6.2"
+    "jest": "25.4.0"
   },
   "jest": {
     "preset": "@lwc/jest-preset",
