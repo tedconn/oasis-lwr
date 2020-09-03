@@ -2277,7 +2277,7 @@ const evaluate = createSecureEnvironment({
     endowments,
     keepAlive: true
 });
-const magicIframe = document.body.querySelector('iframe');
+const magicIframe = document.querySelector('iframe');
 if (isNull$1(magicIframe)) {
     throw new Error(`Invalid Initialization`);
 }
@@ -2400,5 +2400,3 @@ var sandbox = /*#__PURE__*/Object.freeze({
     __proto__: null,
     'default': OasisScript
 });
-
-export { sandbox as OasisScript };
