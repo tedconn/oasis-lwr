@@ -15,5 +15,6 @@ module.exports = {
             },
             loose: true,
         }
-    }
+    },
+    defaultMode: process.env.MODE || "dev"
 };
