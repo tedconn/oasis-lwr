@@ -134,6 +134,7 @@ const serializedRedEnvSourceText = (function redEnvFactory(blueEnv, hooks) {
                 // just in case
                 shadowTarget[key] = originalDescriptor.value;
             }
+            else ;
         }
         else {
             defineProperty(shadowTarget, key, originalDescriptor);
@@ -1403,7 +1404,7 @@ const textContentGetter = getOwnPropertyDescriptor(Node.prototype, 'textContent'
 const parentNodeGetter = getOwnPropertyDescriptor(Node.prototype, 'parentNode').get;
 const ownerDocumentGetter = getOwnPropertyDescriptor(Node.prototype, 'ownerDocument').get;
 const parentElementGetter = getOwnPropertyDescriptor(Node.prototype, 'parentElement').get;
-const textContextSetter = getOwnPropertyDescriptor(Node.prototype, 'textContent').set;
+const textContextGetter = getOwnPropertyDescriptor(Node.prototype, 'textContent').get;
 const childNodesGetter = getOwnPropertyDescriptor(Node.prototype, 'childNodes').get;
 const isConnected = getOwnPropertyDescriptor(Node.prototype, 'isConnected').get;
 
@@ -1449,6 +1450,9 @@ function isNull$1(obj) {
 }
 function isTrue$1(obj) {
     return obj === true;
+}
+function isString(obj) {
+    return typeof obj === 'string';
 }
 function MapConcat(maps) {
     const map = new Map();
@@ -1674,20 +1678,20 @@ const childNodesDistortion = function childNodes() {
 const hasChildNodesDistortion = function hasChildNodes() {
     return getFilteredChildNodes(this).length > 0;
 };
-const getRootNodeDistortion = function getRootNode() {
+const getRootNodeDistortion = function getRootNode$1() {
     if (this.isConnected) {
-        this.ownerDocument; // Is this correct?
+        return this.ownerDocument; // Is this correct?
     }
     return getRootNode.call(this);
 };
 var NodeDistortions = MapCreate([
     [firstChildGetter, firstChildDistortion],
     [lastChildGetter, lastChildDistortion],
-    [textContextSetter, textContentDistortion],
+    [textContextGetter, textContentDistortion],
     [parentNodeGetter, parentNodeDistortion],
     [parentElementGetter, parentElementDistortion],
     [childNodesGetter, childNodesDistortion],
-    [childNodesGetter, hasChildNodesDistortion],
+    [hasChildNodes, hasChildNodesDistortion],
     [getRootNode, getRootNodeDistortion],
 ]);
 
@@ -1759,9 +1763,7 @@ const tabIndexGetter = tabIndexDescriptor.get;
 const tabIndexSetter = tabIndexDescriptor.set;
 const childrenGetter = getOwnPropertyDescriptor$3(Element.prototype, 'children').get;
 const { getElementsByClassName } = Element.prototype;
-const shadowRootGetter = hasOwnProperty$2.call(Element.prototype, 'shadowRoot')
-    ? getOwnPropertyDescriptor$3(Element.prototype, 'shadowRoot').get
-    : () => null;
+const shadowRootGetter = getOwnPropertyDescriptor$3(Element.prototype, 'shadowRoot').get;
 
 /*
  * Copyright (c) 2020, salesforce.com, inc.
@@ -2123,10 +2125,6 @@ defineProperty(Element.prototype, 'attachShadow', {
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/MIT
  */
 const eventTargetGetter = getOwnPropertyDescriptor$2(Event.prototype, 'target').get;
-// TODO: this might not be available anymore
-const srcElementOriginal = getOwnPropertyDescriptor$2(Event.prototype, 'srcElement').get;
-// TODO: this might not be available anymore
-const pathOriginal = getOwnPropertyDescriptor$2(Event.prototype, 'path').get;
 const focusEventRelatedTargetGetter = getOwnPropertyDescriptor$2(FocusEvent.prototype, 'relatedTarget').get;
 const { composedPath } = Event.prototype;
 const eventsMeta = new WeakMap();
@@ -2154,19 +2152,10 @@ const composedPathDistortion = function composedPath() {
 const relatedTargetDistortion = function relatedTarget() {
     return extractEventMetadata(this).relatedTarget;
 };
-// non-standard but important accessor
-const srcElementDistortion = function srcElement() {
-    return extractEventMetadata(this).target;
-};
-const pathDistortion = function path() {
-    return ArrayFilter.call(extractEventMetadata(this).composedPath, (et) => !(et instanceof ShadowRoot));
-};
 var EventDistortions = MapCreate([
     [eventTargetGetter, targetDistortion],
     [composedPath, composedPathDistortion],
     [focusEventRelatedTargetGetter, relatedTargetDistortion],
-    [srcElementOriginal, srcElementDistortion],
-    [pathOriginal, pathDistortion],
 ]);
 
 /*
@@ -2179,7 +2168,7 @@ const activeElementOriginal = getOwnPropertyDescriptor$2(Document.prototype, 'ac
 const activeElementDistortion = function () {
     let activeElement = activeElementOriginal.call(this);
     while (activeElement) {
-        const sr = shadowRootGetter.call(activeElement);
+        const sr = getShadowRootFromHostElement(activeElement);
         if (!sr) {
             return activeElement;
         }
@@ -2212,49 +2201,56 @@ var EventTargetDistortions = MapCreate([
 const { createElement } = document;
 const { prepend: originalPrepend, append: originalAppend, appendChild: originalAppendChild, insertBefore: originalInsertBefore, } = Element.prototype;
 const documentBodyGetter = Reflect.getOwnPropertyDescriptor(Document.prototype, 'body').get;
-function defineExtraGlobal(name, descriptor) {
+function defineExportedGlobal(name, descriptor) {
+    console.log("exporting: " + name);
     Reflect.defineProperty(window, name, descriptor);
 }
+function getImportedGlobal(name) {
+    return window[name];
+}
+// TODO: make sure that these are only accessible when doing controlled evaluations
 const endowments = Object.create(Object.prototype, {
-    $oasisExtraGlobal$: {
-        value: defineExtraGlobal,
-        writable: false,
-        configurable: false,
-        enumerable: false,
+    $oasisExternalDefineProperty$: {
+        value: defineExportedGlobal
+    },
+    $oasisExternalGetProperty$: {
+        value: getImportedGlobal
     }
 });
 function isScriptElement(node) {
     return node instanceof HTMLScriptElement;
 }
-const patchedAppendChild = function appendChild(child) {
+const patchedAppendChild = function appendChild(...args) {
+    const [child] = args;
     if (isScriptElement(child)) {
         createScriptReflection(child.textContent, child.attributes);
         return child;
     }
-    return originalAppendChild.apply(this, arguments);
+    return originalAppendChild.apply(this, args);
 };
-const patchedInsertBefore = function insertBefore(child) {
+const patchedInsertBefore = function insertBefore(...args) {
+    const [child] = args;
     if (isScriptElement(child)) {
         createScriptReflection(child.textContent, child.attributes);
         return child;
     }
-    return originalInsertBefore.apply(this, arguments);
+    return originalInsertBefore.apply(this, args);
 };
-// TODO: this api accepts a list of arguments
-const patchedAppend = function append(child) {
-    if (isScriptElement(child)) {
+const patchedAppend = function append(...args) {
+    const [child] = args;
+    if (!isString(child) && isScriptElement(child)) {
         createScriptReflection(child.textContent, child.attributes);
         return;
     }
-    originalAppend.apply(this, arguments);
+    originalAppend.apply(this, args);
 };
-// TODO: this api accepts a list of arguments
-const patchedPrepend = function prepend(child) {
-    if (isScriptElement(child)) {
+const patchedPrepend = function prepend(...args) {
+    const [child] = args;
+    if (!isString(child) && isScriptElement(child)) {
         createScriptReflection(child.textContent, child.attributes);
         return;
     }
-    originalPrepend.apply(this, arguments);
+    originalPrepend.apply(this, args);
 };
 const distortionMap = MapConcat([
     MapCreate([
@@ -2321,21 +2317,31 @@ evaluate(`
         Text.prototype,
     ].forEach(o => delete o.$);
 `);
-// remap any extra globals between the sandbox and window
-function mapExtraGlobals(names) {
+// remap any exported globals between the sandbox and window
+function mapExportedGlobals(names) {
     names.forEach(name => {
         evaluate(`
             'use strict';
-            let value;
-            const descriptor = {
-                get() { return value },
-                set(v) { value = v },
+            const key = \`${name}\`;
+            $oasisExternalDefineProperty$(key, {
+                get() { return window[key]; },
                 enumerable: true,
                 configurable: true,
-            };
+            });
+        `);
+    });
+}
+// remap any imported globals between the sandbox and window
+function mapImportedGlobals(names) {
+    names.forEach(name => {
+        evaluate(`
+            'use strict';
             const key = \`${name}\`;
-            Object.defineProperty(window, key, descriptor);
-            $oasisExtraGlobal$(key, descriptor);
+            Object.defineProperty(window, key, {
+                get() { return $oasisExternalGetProperty$(key); },
+                enumerable: true,
+                configurable: true,
+            });
         `);
     });
 }
@@ -2357,7 +2363,8 @@ function execute(elm) {
     if (elm.evaluate)
         return; // skipping
     elm.evaluate = true;
-    mapExtraGlobals(elm.extraGlobals);
+    mapExportedGlobals(elm.exportedGlobalNames);
+    mapImportedGlobals(elm.importedGlobalNames);
     createScriptReflection(elm.textContent, elm.attributes);
 }
 class OasisScript extends HTMLElement {
@@ -2369,12 +2376,19 @@ class OasisScript extends HTMLElement {
         });
         this.attachShadow({ mode: 'open' }).appendChild(slot);
     }
-    get extraGlobals() {
-        const names = this.getAttribute('extra-globals');
+    get exportedGlobalNames() {
+        const names = this.getAttribute('exported-global-names');
         return names ? names.split(',').map(name => name.trim()).filter(name => /\w+/.test(name)) : [];
     }
-    set extraGlobals(v) {
-        this.setAttribute('extra-globals', v.join(','));
+    set exportedGlobalNames(v) {
+        this.setAttribute('exported-global-names', v.join(','));
+    }
+    get importedGlobalNames() {
+        const names = this.getAttribute('imported-global-names');
+        return names ? names.split(',').map(name => name.trim()).filter(name => /\w+/.test(name)) : [];
+    }
+    set importedGlobalNames(v) {
+        this.setAttribute('imported-global-names', v.join(','));
     }
     get src() {
         return this.getAttribute('src');
