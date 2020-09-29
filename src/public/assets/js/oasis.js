@@ -6431,14 +6431,15 @@
     var postcssSelectorParser = /*@__PURE__*/getDefaultExportFromCjs(dist);
 
     /*
-     * Copyright (c) 2019, salesforce.com, inc.
+     * Copyright (c) 2020, salesforce.com, inc.
      * All rights reserved.
      * SPDX-License-Identifier: BSD-3-Clause
      * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
      */
 
     // IE11 does not have Element.prototype.matches, we can use msMatchesSelector.
-    var nativeMatches = Element.prototype.matches || Element.prototype.msMatchesSelector;
+    // This is ignored for code coverage because we don't run code coverage in IE.
+    var nativeMatches = Element.prototype.matches || /* istanbul ignore next */ Element.prototype.msMatchesSelector;
 
     function getChildren (node) {
       if (node.documentElement) { // document
@@ -6465,6 +6466,10 @@
       var node = this._queue.pop();
       if (node) {
         var children = getChildren(node);
+        // In IE, children may be undefined if the `node` is the document.
+        // We don't run coverage tests for IE, so it's ignored.
+        // See: https://developer.mozilla.org/en-US/docs/Web/API/ParentNode/children#Browser_compatibility
+        /* istanbul ignore else */
         if (children) {
           for (var i = children.length - 1; i >= 0; i--) {
             this._queue.push(children[i]);
@@ -6611,6 +6616,48 @@
       return results
     }
 
+    function getMatchingElementsByTagName (elementIterator, tagName) {
+      var results = [];
+      var element;
+      var tagNameAsLowerCase = tagName.toLowerCase();
+      while ((element = elementIterator.next())) {
+        if (tagName === '*' || tagNameAsLowerCase === element.tagName.toLowerCase()) {
+          results.push(element);
+        }
+      }
+      return results
+    }
+
+    /**
+     * https://dom.spec.whatwg.org/#concept-getelementsbytagnamens
+     */
+    function getMatchingElementsByTagNameNS (elementIterator, namespaceURI, tagName) {
+      var results = [];
+      // exit early if null, empty string or undefined is provided
+      // these will not match the element namespace
+      if (!namespaceURI) {
+        return results
+      }
+      var element;
+
+      while ((element = elementIterator.next())) {
+        // we'll do a case insensitive match to find out where the tag name is
+        var outerHTMLAsUppercase = element.outerHTML.toUpperCase();
+        // we are not not guaranteed to have an uppercase element.tagName, eg: svg elements
+        var index = outerHTMLAsUppercase.indexOf(element.tagName.toUpperCase());
+        // now we can get the original, non-uppercased tag name
+        var originalTagName = element.outerHTML.substr(index, element.tagName.length);
+        // tagName supports a wildcard parameter
+        var tagMatches = tagName === originalTagName || tagName === '*';
+        // namespace supports a wildcard parameter
+        var namespaceMatches = element.namespaceURI === namespaceURI || namespaceURI === '*';
+        if (tagMatches && namespaceMatches) {
+          results.push(element);
+        }
+      }
+      return results
+    }
+
     function getMatchingElementsByClassName (elementIterator, classNames) {
       var results = [];
       var element;
@@ -6627,6 +6674,17 @@
 
       while ((element = elementIterator.next())) loop();
       return results
+    }
+
+    function getMatchingElementById (elementIterator, id) {
+      var element;
+      while ((element = elementIterator.next())) {
+        if (element.id === id) {
+          return element
+        }
+      }
+
+      return null
     }
 
     // For convenience, attach the source to all pseudo selectors.
@@ -6665,6 +6723,20 @@
       return getMatchingElements(elementIterator, ast, multiple)
     }
 
+    function getElementsByTagName$2 (tagName, context) {
+      if ( context === void 0 ) context = document;
+
+      var elementIterator = new ElementIterator(context);
+      return getMatchingElementsByTagName(elementIterator, tagName)
+    }
+
+    function getElementsByTagNameNS$2 (namespaceURI, tagName, context) {
+      if ( context === void 0 ) context = document;
+
+      var elementIterator = new ElementIterator(context);
+      return getMatchingElementsByTagNameNS(elementIterator, namespaceURI, tagName)
+    }
+
     function querySelector$1 (selector, context) {
       if ( context === void 0 ) context = document;
 
@@ -6683,6 +6755,16 @@
       var elementIterator = new ElementIterator(context);
       var classNamesSplit = classNames.trim().split(/\s+/);
       return getMatchingElementsByClassName(elementIterator, classNamesSplit)
+    }
+
+    function getElementById$1 (id, context) {
+      if ( context === void 0 ) context = document;
+
+      if (context.constructor.name !== 'Document' && context.constructor.name !== 'HTMLDocument' && context.constructor.name !== 'ShadowRoot') {
+        throw new TypeError('Provided context must be of type Document or ShadowRoot')
+      }
+      var elementIterator = new ElementIterator(context);
+      return getMatchingElementById(elementIterator, id)
     }
 
     /*
@@ -6716,13 +6798,13 @@
         const elements = getElementsByClassName$2(classNames, this);
         return createStaticNodeList(elements);
     };
-    const getElementsByTagNameDistortion = function getElementsByTagName() {
-        // TODO
-        throw new Error(`Implementation Missing`);
+    const getElementsByTagNameDistortion = function getElementsByTagName(tagName) {
+        const elements = getElementsByTagName$2(tagName, this);
+        return createStaticNodeList(elements);
     };
-    const getElementsByTagNameNSDistortion = function getElementsByTagNameNS() {
-        // TODO
-        throw new Error(`Implementation Missing`);
+    const getElementsByTagNameNSDistortion = function getElementsByTagNameNS(namespaceURI, tagName) {
+        const elements = getElementsByTagNameNS$2(namespaceURI, tagName, this);
+        return createStaticNodeList(elements);
     };
     // Non-deep-traversing patches: this descriptor map includes all descriptors that
     // do not have access to nodes beyond the immediate children.
@@ -6848,9 +6930,8 @@
         }
         return activeElement;
     };
-    const getElementByIdDistortion = function getElementById() {
-        // TODO
-        throw new Error(`Implementation Missing`);
+    const getElementByIdDistortion = function getElementById(id) {
+        return getElementById$1(id, this);
     };
     const getElementsByNameDistortion = function getElementsByName() {
         // TODO
@@ -7099,3 +7180,4 @@
     customElements.define('x-oasis-script', OasisScript);
 
 })));
+//# sourceMappingURL=oasis.js.map
