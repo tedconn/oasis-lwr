@@ -29,7 +29,7 @@
      * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/MIT
      */
     const { getOwnPropertyDescriptor: getOwnPropertyDescriptor$1, hasOwnProperty } = Object;
-    const { addEventListener, getAttribute, getBoundingClientRect, getElementsByTagName, getElementsByTagNameNS, getElementsByClassName, hasAttribute, querySelector, querySelectorAll, removeAttribute, removeEventListener, setAttribute, } = Element.prototype;
+    const { addEventListener, getAttribute, getBoundingClientRect, getElementsByTagName, getElementsByTagNameNS, getElementsByClassName, matches, closest, hasAttribute, querySelector, querySelectorAll, removeAttribute, removeEventListener, setAttribute, } = Element.prototype;
     const attachShadow = hasOwnProperty.call(Element.prototype, 'attachShadow')
         ? Element.prototype.attachShadow
         : () => {
@@ -200,7 +200,6 @@
                     // just in case
                     shadowTarget[key] = originalDescriptor.value;
                 }
-                else ;
             }
             else {
                 defineProperty(shadowTarget, key, originalDescriptor);
@@ -1099,6 +1098,25 @@
     }
 
     const cachedReflectiveIntrinsicsMap = WeakMapCreate();
+    /**
+     * This list must be in sync with ecma-262, anything new added to the global object
+     * should be considered, to decide whether or not they need remapping. The default
+     * behavior, if missing form the following list, is to be remapped, which is safer.
+     *
+     * Note: remapped means the functionality is provided by the blue realm, rather than
+     * the red one. This helps with the identity discontinuity issue, e.g.: all Set objects
+     * have the same identity because it is always derived from the outer realm's Set.
+     *
+     * Note 1: We have identified 3 types of intrinsics
+     * A: primitives driven intrinsics
+     * B: syntax driven intrinsics (they usually have a imperative form as well)
+     * C: imperative only intrinsics
+     *
+     * While A is not remapped, it is safe, and works fast that way, and C is remapped to
+     * preserve the identity of all produced objects from the same realm, B is really
+     * problematic, and requires a lot more work to guarantee that objects from both sides
+     * can be considered equivalents (without identity discontinuity).
+     */
     const ESGlobalKeys = SetCreate([
         // *** 18.1 Value Properties of the Global Object
         'Infinity',
@@ -1115,11 +1133,12 @@
         'encodeURI',
         'encodeURIComponent',
         // *** 18.3 Constructor Properties of the Global Object
+        'AggregateError',
         'Array',
         'ArrayBuffer',
         'Boolean',
         'DataView',
-        'Date',
+        // 'Date', // Unstable & Remapped
         'Error',
         'EvalError',
         'Float32Array',
@@ -1128,17 +1147,17 @@
         'Int8Array',
         'Int16Array',
         'Int32Array',
-        'Map',
+        // 'Map', // Remapped
         'Number',
         'Object',
         // Allow Blue `Promise` constructor to overwrite the Red one so that promises
         // created by the `Promise` constructor or APIs like `fetch` will work.
-        //'Promise',
+        // 'Promise', // Remapped
         'Proxy',
         'RangeError',
         'ReferenceError',
         'RegExp',
-        'Set',
+        // 'Set', // Remapped
         'SharedArrayBuffer',
         'String',
         'Symbol',
@@ -1149,8 +1168,8 @@
         'Uint16Array',
         'Uint32Array',
         'URIError',
-        'WeakMap',
-        'WeakSet',
+        // 'WeakMap', // Remapped
+        // 'WeakSet', // Remapped
         // *** 18.4 Other Properties of the Global Object
         'Atomics',
         'JSON',
@@ -1159,12 +1178,11 @@
         // *** Annex B
         'escape',
         'unescape',
-        // *** ECMA-402
-        'Intl',
     ]);
     // These are foundational things that should never be wrapped but are equivalent
     // TODO: revisit this list.
     const ReflectiveIntrinsicObjectNames = [
+        'AggregateError',
         'Array',
         'Error',
         'EvalError',
@@ -1198,8 +1216,11 @@
             const name = ReflectiveIntrinsicObjectNames[i];
             const blue = blueIntrinsics[name];
             const red = redIntrinsics[name];
-            env.setRefMapEntries(red, blue);
-            env.setRefMapEntries(red.prototype, blue.prototype);
+            // new intrinsics might not be available in some browsers, e.g.: AggregateError
+            if (!isUndefined(blue)) {
+                env.setRefMapEntries(red, blue);
+                env.setRefMapEntries(red.prototype, blue.prototype);
+            }
         }
     }
     function getFilteredEndowmentDescriptors(endowments) {
@@ -1364,37 +1385,6 @@
         env.setRefMapEntries(redRefs.WindowProto, blueRefs.WindowProto);
     }
 
-    // A comprehensive list of policy feature directives can be found at
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Feature-Policy#Directives
-    // Directives not currently supported by Chrome are commented out because
-    // Chrome logs warnings to the developer console.
-    const IFRAME_ALLOW_ATTRIBUTE_VALUE = "accelerometer 'none';" +
-        "ambient-light-sensor 'none';" +
-        "autoplay 'none';" +
-        // "battery 'none';" +
-        "camera 'none';" +
-        // "display-capture 'none';" +
-        "document-domain 'none';" +
-        "encrypted-media 'none';" +
-        // "execution-while-not-rendered 'none';" +
-        // "execution-while-out-of-viewport 'none';" +
-        "fullscreen 'none';" +
-        "geolocation 'none';" +
-        "gyroscope 'none';" +
-        // "layout-animations 'none';" +
-        // "legacy-image-formats 'none';" +
-        "magnetometer 'none';" +
-        "microphone 'none';" +
-        "midi 'none';" +
-        // "navigation-override 'none';" +
-        // "oversized-images 'none';" +
-        "payment 'none';" +
-        "picture-in-picture 'none';" +
-        // "publickey-credentials 'none';" +
-        "sync-xhr 'none';" +
-        "usb 'none';" +
-        // "wake-lock 'none';" +
-        "xr-spatial-tracking 'none';";
     const IFRAME_SANDBOX_ATTRIBUTE_VALUE = 'allow-same-origin allow-scripts';
     const appendChildCall = unapply(Node.prototype.appendChild);
     const removeCall = unapply(Element.prototype.remove);
@@ -1405,7 +1395,6 @@
     function createDetachableIframe() {
         // @ts-ignore document global ref - in browsers
         const iframe = createElementCall(document, 'iframe');
-        iframe.setAttribute('allow', IFRAME_ALLOW_ATTRIBUTE_VALUE);
         iframe.setAttribute('sandbox', IFRAME_SANDBOX_ATTRIBUTE_VALUE);
         iframe.style.display = 'none';
         const parent = documentBodyGetterCall(document) || nodeLastChildGetterCall(document);
@@ -1420,6 +1409,8 @@
             removeCall(iframe);
         }
     }
+    // caching references
+    const { open, close } = document;
     function createSecureEnvironment(options) {
         const { distortionMap, endowments, keepAlive } = options || ObjectCreate(null);
         const iframe = createDetachableIframe();
@@ -1443,6 +1434,12 @@
         // to detach the iframe only if the keepAlive option isn't true
         if (keepAlive !== true) {
             removeIframe(iframe);
+        }
+        else {
+            // TODO: temporary hack to preserve the document reference in FF
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=543435
+            open.call(redRefs.document);
+            close.call(redRefs.document);
         }
         // finally, we return the evaluator function
         return (sourceText) => {
@@ -6504,6 +6501,7 @@
       }
       // if an element is inside the shadow DOM, break outside of it
       var rootNode = element.getRootNode();
+      /* istanbul ignore else */
       if (rootNode !== document) {
         return rootNode.host
       }
@@ -6512,7 +6510,7 @@
     function getFirstMatchingAncestor (element, nodes) {
       var ancestor = getParent(element);
       while (ancestor) {
-        if (matches(ancestor, { nodes: nodes })) {
+        if (matchesSelector(ancestor, { nodes: nodes })) {
           return ancestor
         }
 
@@ -6523,17 +6521,18 @@
     function getFirstMatchingPreviousSibling (element, nodes) {
       var sibling = element.previousElementSibling;
       while (sibling) {
-        if (matches(sibling, { nodes: nodes })) {
+        if (matchesSelector(sibling, { nodes: nodes })) {
           return sibling
         }
         sibling = sibling.previousElementSibling;
       }
     }
 
-    function matches (element, ast) {
+    function matchesSelector (element, ast) {
       var nodes = ast.nodes;
       for (var i = nodes.length - 1; i >= 0; i--) {
         var node = nodes[i];
+        /* istanbul ignore else */
         if (node.type === 'id') {
           if (element.id !== node.value) {
             return false
@@ -6553,6 +6552,7 @@
             return false
           }
         } else if (node.type === 'combinator') {
+          /* istanbul ignore else */
           if (node.value === ' ') {
             // walk all ancestors
             var precedingNodes = getLastNonCombinatorNodes(nodes.slice(0, i));
@@ -6567,7 +6567,7 @@
             // walk immediate parent only
             var precedingNodes$1 = getLastNonCombinatorNodes(nodes.slice(0, i));
             var ancestor$1 = getParent(element);
-            if (!ancestor$1 || !matches(ancestor$1, { nodes: precedingNodes$1 })) {
+            if (!ancestor$1 || !matchesSelector(ancestor$1, { nodes: precedingNodes$1 })) {
               return false
             } else {
               element = ancestor$1;
@@ -6577,7 +6577,7 @@
             // walk immediate sibling only
             var precedingNodes$2 = getLastNonCombinatorNodes(nodes.slice(0, i));
             var sibling = element.previousElementSibling;
-            if (!sibling || !matches(sibling, { nodes: precedingNodes$2 })) {
+            if (!sibling || !matchesSelector(sibling, { nodes: precedingNodes$2 })) {
               return false
             } else {
               i -= precedingNodes$2.length;
@@ -6601,10 +6601,10 @@
       var results = multiple ? [] : null;
       var element;
       while ((element = elementIterator.next())) {
-        for (var i = 0, list = ast.nodes; i < list.length; i += 1) { // multiple nodes here are comma-separated
+        for (var i = 0, list = ast.nodes; i < list.length; i += 1) { // comma-separated selectors, e.g. .foo, .bar
           var node = list[i];
 
-          if (matches(element, node)) {
+          if (matchesSelector(element, node)) {
             if (multiple) {
               results.push(element);
             } else {
@@ -6622,6 +6622,17 @@
       var tagNameAsLowerCase = tagName.toLowerCase();
       while ((element = elementIterator.next())) {
         if (tagName === '*' || tagNameAsLowerCase === element.tagName.toLowerCase()) {
+          results.push(element);
+        }
+      }
+      return results
+    }
+
+    function getMatchingElementsByName (elementIterator, name) {
+      var results = [];
+      var element;
+      while ((element = elementIterator.next())) {
+        if (element.name === name) {
           results.push(element);
         }
       }
@@ -6715,9 +6726,26 @@
       }
     }
 
-    function query (selector, context, multiple) {
+    function assertIsDocumentOrShadowRoot (context) {
+      if (context.nodeType !== 11 && context.nodeType !== 9) {
+        throw new TypeError('Provided context must be of type Document or ShadowRoot')
+      }
+    }
+
+    function assertIsElement (element) {
+      if (!element || element.nodeType !== 1) {
+        throw new TypeError('Provided context must be of type Element')
+      }
+    }
+
+    function parse (selector) {
       var ast = postcssSelectorParser().astSync(selector);
       attachSourceIfNecessary(ast, selector);
+      return ast
+    }
+
+    function query (selector, context, multiple) {
+      var ast = parse(selector);
 
       var elementIterator = new ElementIterator(context);
       return getMatchingElements(elementIterator, ast, multiple)
@@ -6760,11 +6788,49 @@
     function getElementById$1 (id, context) {
       if ( context === void 0 ) context = document;
 
-      if (context.constructor.name !== 'Document' && context.constructor.name !== 'HTMLDocument' && context.constructor.name !== 'ShadowRoot') {
-        throw new TypeError('Provided context must be of type Document or ShadowRoot')
-      }
+      assertIsDocumentOrShadowRoot(context);
       var elementIterator = new ElementIterator(context);
       return getMatchingElementById(elementIterator, id)
+    }
+
+    function getElementsByName$1 (name, context) {
+      if ( context === void 0 ) context = document;
+
+      assertIsDocumentOrShadowRoot(context);
+      var elementIterator = new ElementIterator(context);
+      return getMatchingElementsByName(elementIterator, name)
+    }
+
+    function matches$1 (selector, context) {
+      assertIsElement(context);
+      var ast = parse(selector);
+
+      for (var i = 0, list = ast.nodes; i < list.length; i += 1) { // comma-separated selectors, e.g. .foo, .bar
+        var node = list[i];
+
+        if (matchesSelector(context, node)) {
+          return true
+        }
+      }
+      return false
+    }
+
+    function closest$1 (selector, context) {
+      var ast = parse(selector);
+
+      for (var i = 0, list = ast.nodes; i < list.length; i += 1) { // comma-separated selectors, e.g. .foo, .bar
+        var node = list[i];
+
+        if (matchesSelector(context, node)) {
+          return context
+        }
+
+        var matchingAncestor = getFirstMatchingAncestor(context, node.nodes);
+        if (matchingAncestor) {
+          return matchingAncestor
+        }
+      }
+      return null
     }
 
     /*
@@ -6805,6 +6871,12 @@
     const getElementsByTagNameNSDistortion = function getElementsByTagNameNS(namespaceURI, tagName) {
         const elements = getElementsByTagNameNS$2(namespaceURI, tagName, this);
         return createStaticNodeList(elements);
+    };
+    const matchesDistortion = function matches(selector) {
+        return matches$1(selector, this);
+    };
+    const closestDistortion = function closest(selector) {
+        return closest$1(selector, this);
     };
     // Non-deep-traversing patches: this descriptor map includes all descriptors that
     // do not have access to nodes beyond the immediate children.
@@ -6849,6 +6921,8 @@
         [getElementsByClassName, getElementsByClassNameDistortion],
         [getElementsByTagName, getElementsByTagNameDistortion],
         [getElementsByTagNameNS, getElementsByTagNameNSDistortion],
+        [matches, matchesDistortion],
+        [closest, closestDistortion],
     ]);
     // Main Window Patches
     const { attachShadow: originalAttachShadow } = Element.prototype;
@@ -6933,9 +7007,8 @@
     const getElementByIdDistortion = function getElementById(id) {
         return getElementById$1(id, this);
     };
-    const getElementsByNameDistortion = function getElementsByName() {
-        // TODO
-        throw new Error(`Implementation Missing`);
+    const getElementsByNameDistortion = function getElementsByName(name) {
+        return getElementsByName$1(name, this);
     };
     var DocumentDistortions = MapCreate([
         [activeElementOriginal, activeElementDistortion],
@@ -6949,7 +7022,7 @@
      * SPDX-License-Identifier: MIT
      * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/MIT
      */
-    const { addEventListener: addEventListenerOriginal, } = EventTarget.prototype;
+    const { addEventListener: addEventListenerOriginal, dispatchEvent: dispatchEventOriginal, } = EventTarget.prototype;
     const addEventListenerDistortion = function addEventListener(...args) {
         // track the event name that libs in oasis will be listening for
         // in order to flatten those events before re-targeting
@@ -6987,7 +7060,7 @@
     const patchedAppendChild = function appendChild(...args) {
         const [child] = args;
         if (isScriptElement(child)) {
-            createScriptReflection(child.textContent, child.attributes);
+            createScriptReflection(child);
             return child;
         }
         return originalAppendChild.apply(this, args);
@@ -6995,7 +7068,7 @@
     const patchedInsertBefore = function insertBefore(...args) {
         const [child] = args;
         if (isScriptElement(child)) {
-            createScriptReflection(child.textContent, child.attributes);
+            createScriptReflection(child);
             return child;
         }
         return originalInsertBefore.apply(this, args);
@@ -7003,7 +7076,7 @@
     const patchedAppend = function append(...args) {
         const [child] = args;
         if (!isString(child) && isScriptElement(child)) {
-            createScriptReflection(child.textContent, child.attributes);
+            createScriptReflection(child);
             return;
         }
         originalAppend.apply(this, args);
@@ -7011,7 +7084,7 @@
     const patchedPrepend = function prepend(...args) {
         const [child] = args;
         if (!isString(child) && isScriptElement(child)) {
-            createScriptReflection(child.textContent, child.attributes);
+            createScriptReflection(child);
             return;
         }
         originalPrepend.apply(this, args);
@@ -7043,10 +7116,6 @@
     }
     const magicWindow = magicIframe.contentWindow;
     const magicDocument = magicWindow.document;
-    // TODO: temporary hack to preserve the document ref in FF until sjs solves this
-    // https://github.com/caridy/sandboxed-javascript-environment/issues/121
-    document.open.call(magicDocument);
-    document.close.call(magicDocument);
     const magicBody = documentBodyGetter.call(magicDocument);
     // patching iframe.contentWindow getter to prevent access to the magic iframe
     const contentWindowDescriptor = Reflect.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
@@ -7114,18 +7183,27 @@
         `);
         });
     }
-    function createScriptReflection(sourceText, attributes) {
+    function createScriptReflection(elm) {
+        const { attributes, textContent: sourceText } = elm;
+        if (sourceText) {
+            evaluate(sourceText);
+            return;
+        }
         const script = createElement.call(magicDocument, 'script');
         for (let i = 0, len = attributes.length; i < len; i += 1) {
             const attr = attributes.item(i);
-            if (!isNull$1(attr)) {
-                script.setAttribute(attr.name, attr.value);
+            if (!isNull$1(attr) && attr.name.indexOf('on') !== 0) {
+                setAttribute.call(script, attr.name, attr.value);
             }
         }
         if (sourceText) {
-            script.append(sourceText);
+            script.textContent = sourceText;
         }
-        magicBody.appendChild(script);
+        addEventListenerOriginal.call(script, 'error', (e) => dispatchEventOriginal
+            .call(elm, new ErrorEvent('error', e)));
+        addEventListenerOriginal.call(script, 'load', () => dispatchEventOriginal
+            .call(elm, new Event('load')));
+        appendChild.call(magicBody, script);
     }
     function execute(elm) {
         // TODO: improve this to not use an expando, use a weakmap instead
@@ -7134,13 +7212,13 @@
         elm.evaluate = true;
         mapExportedGlobals(elm.exportedGlobalNames);
         mapImportedGlobals(elm.importedGlobalNames);
-        createScriptReflection(elm.textContent, elm.attributes);
+        createScriptReflection(elm);
     }
     class OasisScript extends HTMLElement {
         constructor() {
             super();
             const slot = document.createElement('slot');
-            slot.addEventListener('slotchange', () => execute(this), {
+            addEventListenerOriginal.call(slot, 'slotchange', () => execute(this), {
                 once: true // we only care about the first time this receive some content
             });
             this.attachShadow({ mode: 'open' }).appendChild(slot);
