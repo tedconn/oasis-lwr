@@ -11,7 +11,7 @@ module.exports = {
         basePath: '',
         contentSecurityPolicy: {
             directives: {
-                scriptSrc: ['cdn.evgnet.com']
+                scriptSrc: ['www.googletagmanager.com']
             },
             loose: true,
         }
