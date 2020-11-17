@@ -7242,7 +7242,7 @@
             this.setAttribute('hidden', 'true');
             // ensure that the src is only ever executed the first time
             const { src } = this;
-            if (src && src.length) {
+            if (src !== null) {
                 execute(this);
             }
         }
