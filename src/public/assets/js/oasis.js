@@ -1518,31 +1518,6 @@
      * SPDX-License-Identifier: MIT
      * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/MIT
      */
-    function getTextContent(node) {
-        switch (node.nodeType) {
-            case ELEMENT_NODE:
-            case DOCUMENT_FRAGMENT_NODE: {
-                const childNodes = getFilteredChildNodes(node);
-                let content = '';
-                for (let i = 0, len = childNodes.length; i < len; i += 1) {
-                    const currentNode = childNodes[i];
-                    if (currentNode.nodeType !== COMMENT_NODE) {
-                        content += getTextContent(currentNode);
-                    }
-                }
-                return content;
-            }
-            default:
-                return node.nodeValue;
-        }
-    }
-
-    /*
-     * Copyright (c) 2020, salesforce.com, inc.
-     * All rights reserved.
-     * SPDX-License-Identifier: MIT
-     * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/MIT
-     */
     const Items = createHiddenField('StaticNodeListItems');
     function StaticNodeList() {
         throw new TypeError('Illegal constructor');
@@ -1712,6 +1687,24 @@
         }
         return getRootNode.call(this);
     };
+    function getTextContent(node) {
+        switch (node.nodeType) {
+            case ELEMENT_NODE:
+            case DOCUMENT_FRAGMENT_NODE: {
+                const childNodes = getFilteredChildNodes(node);
+                let content = '';
+                for (let i = 0, len = childNodes.length; i < len; i += 1) {
+                    const currentNode = childNodes[i];
+                    if (currentNode.nodeType !== COMMENT_NODE) {
+                        content += getTextContent(currentNode);
+                    }
+                }
+                return content;
+            }
+            default:
+                return node.nodeValue;
+        }
+    }
     var NodeDistortions = MapCreate([
         [firstChildGetter, firstChildDistortion],
         [lastChildGetter, lastChildDistortion],
@@ -7034,7 +7027,12 @@
         [addEventListenerOriginal, addEventListenerDistortion]
     ]);
 
-    // @ts-ignore we have some issues with `declare module '@caridy/sjs/lib/browser-realm';`
+    /*
+     * Copyright (c) 2018, salesforce.com, inc.
+     * All rights reserved.
+     * SPDX-License-Identifier: BSD-3-Clause
+     * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+     */
     // local caches
     const { createElement } = document;
     const { prepend: originalPrepend, append: originalAppend, appendChild: originalAppendChild, insertBefore: originalInsertBefore, } = Element.prototype;
@@ -7205,15 +7203,23 @@
             .call(elm, new Event('load')));
         appendChild.call(magicBody, script);
     }
+    function normalizeGlobalNames(names) {
+        if (!isNull$1(names) && !isUndefined$1(names)) {
+            return names.split(",").map(name => name.trim()).filter(name => GLOBAL_NAMES_REGEX.test(name));
+        }
+        return [];
+    }
     function execute(elm) {
         // TODO: improve this to not use an expando, use a weakmap instead
         if (elm.evaluate)
             return; // skipping
         elm.evaluate = true;
-        mapExportedGlobals(elm.exportedGlobalNames);
-        mapImportedGlobals(elm.importedGlobalNames);
+        mapExportedGlobals(normalizeGlobalNames(elm.exportedGlobalNames));
+        mapImportedGlobals(normalizeGlobalNames(elm.importedGlobalNames));
         createScriptReflection(elm);
     }
+    // disallow spaces but allow anything else, including "_", "-" and "$"
+    const GLOBAL_NAMES_REGEX = /^\S+$/;
     class OasisScript extends HTMLElement {
         constructor() {
             super();
@@ -7224,24 +7230,33 @@
             this.attachShadow({ mode: 'open' }).appendChild(slot);
         }
         get exportedGlobalNames() {
-            const names = this.getAttribute('exported-global-names');
-            return names ? names.split(',').map(name => name.trim()).filter(name => /\w+/.test(name)) : [];
+            return this.getAttribute('exported-global-names');
         }
         set exportedGlobalNames(v) {
-            this.setAttribute('exported-global-names', v.join(','));
+            if (isNull$1(v) || isUndefined$1(v) || v === '') {
+                this.removeAttribute('exported-global-names');
+            }
+            else {
+                this.setAttribute('exported-global-names', v);
+            }
         }
         get importedGlobalNames() {
-            const names = this.getAttribute('imported-global-names');
-            return names ? names.split(',').map(name => name.trim()).filter(name => /\w+/.test(name)) : [];
+            return this.getAttribute('imported-global-names');
         }
         set importedGlobalNames(v) {
-            this.setAttribute('imported-global-names', v.join(','));
+            if (isNull$1(v) || isUndefined$1(v) || v === '') {
+                this.removeAttribute('imported-global-names');
+            }
+            else {
+                this.setAttribute('imported-global-names', v);
+            }
         }
         get src() {
-            return this.getAttribute('src');
+            var _a;
+            return (_a = this.getAttribute('src')) !== null && _a !== void 0 ? _a : '';
         }
         set src(v) {
-            if (v === null) {
+            if (isNull$1(v) || isUndefined$1(v) || v === '') {
                 this.removeAttribute('src');
             }
             else {
@@ -7249,8 +7264,12 @@
             }
         }
         connectedCallback() {
+            // always hide oasis element
+            this.setAttribute('hidden', 'true');
+            // ensure that we only execute if there is a src
+            // this allows the slotChange event to pick up inline text
             const { src } = this;
-            if (src !== null) {
+            if (src && src.length) {
                 execute(this);
             }
         }
