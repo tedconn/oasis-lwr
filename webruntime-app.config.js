@@ -11,7 +11,7 @@ module.exports = {
         basePath: '',
         contentSecurityPolicy: {
             directives: {
-                scriptSrc: ['cdn.evgnet.com', 'interactionstudio.us-1.evergage.com']
+                scriptSrc: ['cdn.pendo.io', 'data.pendo.io', 'app.pendo.io']
             },
             loose: true,
         }

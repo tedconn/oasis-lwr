@@ -1,0 +1,8 @@
+{
+    "devName": "products",
+    "label": "Products",
+    "themeLayoutType": "Inner",
+    "component": {
+        "descriptor": "x/products"
+    }
+}

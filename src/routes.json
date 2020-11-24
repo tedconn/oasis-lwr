@@ -27,6 +27,19 @@
         }
     },
     {
+        "id": "products",
+        "devName": "Products",
+        "path": "/products",
+        "view": "products",
+        "label": "Products",
+        "page": {
+            "type": "comm__namedPage",
+            "attributes": {
+                "name": "products"
+            }
+        }
+    },
+    {
         "id": "contact",
         "devName": "Contact",
         "path": "/contact",

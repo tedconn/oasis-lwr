@@ -4,4 +4,39 @@
 <link rel="stylesheet" href="{ basePath }/assets/styles/bootstrap.min.css">
 <link rel="stylesheet" href="{ basePath }/assets/styles/styles.css?{ versionKey }" />
 <script src="{ basePath }/assets/js/oasis.js"></script>
-<x-oasis-script src="http://cdn.evgnet.com/beacon/interactionstudio/adityasandbox/scripts/evergage.js" exported-global-names="__webpack_public_path__,__evergage__context,__evg__store,evg__renderDebugger,__evg__exitVisualEditor,__evg__launchVisualEditorFromLegacyUI"></x-oasis-script>
+<script nonce="{nonce}">
+    (function(apiKey){
+        (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=[];
+        v=['initialize','identify','updateOptions','pageLoad','track'];for(w=0,x=v.length;w<x;++w)(function(m){
+            o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+            y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';
+            z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+
+            // Call this whenever information about your visitors becomes available
+            // Please use Strings, Numbers, or Bools for value types.
+            pendo.initialize({
+                visitor: {
+                    id:              'VISITOR-UNIQUE-ID'   // Required if user is logged in
+                    // email:        // Recommended if using Pendo Feedback, or NPS Email
+                    // full_name:    // Recommended if using Pendo Feedback
+                    // role:         // Optional
+
+                    // You can add any additional visitor level key-values here,
+                    // as long as it's not one of the above reserved names.
+                },
+
+                account: {
+                    id:           'talon-template-starter' // Highly recommended
+                    // name:         // Optional
+                    // is_paying:    // Recommended if using Pendo Feedback
+                    // monthly_value:// Recommended if using Pendo Feedback
+                    // planLevel:    // Optional
+                    // planPrice:    // Optional
+                    // creationDate: // Optional
+
+                    // You can add any additional account level key-values here,
+                    // as long as it's not one of the above reserved names.
+                }
+            });
+    })('56245a19-8b6c-49f7-53d2-69dc9aeb5b95');
+</script>
