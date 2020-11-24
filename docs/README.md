@@ -1,7 +1,8 @@
 # LWR Oasis Demo
 
-This is a Communities LWR starter template which uses Oasis to allow Evergage to pierce the Shadow DOM freely.
+This is a n Experience Cloud LWR starter template which supports synthetic shadow, Oasis, native shadow with Pendo preinstalled. 
 
 ### Running the app locally
-1. Run `yarn build`
-2. Run `yarn start:local`
+1. `yarn`
+2. `yarn build`
+2. `yarn start:local`
