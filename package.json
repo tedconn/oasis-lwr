@@ -20,17 +20,11 @@
     "node": ">=10.0"
   },
   "dependencies": {
-    "@communities-webruntime/cli": "0.33.29",
-    "@lwc/compiler": "1.6.2",
-    "@webruntime/navigation": "0.33.29",
-    "lwc": "1.6.2"
+    "@communities-webruntime/cli": "0.43.0"
   },
   "devDependencies": {
-    "@communities-webruntime/app": "0.33.29",
-    "@communities-webruntime/services": "0.33.29",
     "@lwc/jest-preset": "7.0.0",
-    "@lwc/synthetic-shadow": "1.6.2",
-    "@salesforce/oasis": "^0.3.1",
+    "@salesforce/oasis": "0.3.3",
     "colors": "^1.4.0",
     "cpx": "^1.5.0",
     "jest": "25.4.0"
