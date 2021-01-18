@@ -30,7 +30,7 @@
     "@communities-webruntime/services": "0.33.29",
     "@lwc/jest-preset": "7.0.0",
     "@lwc/synthetic-shadow": "1.6.2",
-    "@salesforce/oasis": "^0.3.1",
+    "@salesforce/oasis": "^0.3.4",
     "colors": "^1.4.0",
     "cpx": "^1.5.0",
     "jest": "25.4.0"
