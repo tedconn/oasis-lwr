@@ -7035,7 +7035,7 @@
      */
     // local caches
     const { createElement } = document;
-    const { prepend: originalPrepend, append: originalAppend, appendChild: originalAppendChild, insertBefore: originalInsertBefore, } = Element.prototype;
+    const { prepend: originalPrepend, append: originalAppend, appendChild: originalAppendChild, insertBefore: originalInsertBefore, setAttribute: originalSetAttribute } = Element.prototype;
     const documentBodyGetter = Reflect.getOwnPropertyDescriptor(Document.prototype, 'body').get;
     function defineExportedGlobal(name, descriptor) {
         Reflect.defineProperty(window, name, descriptor);
@@ -7183,25 +7183,28 @@
     }
     function createScriptReflection(elm) {
         const { attributes, textContent: sourceText } = elm;
-        if (sourceText) {
-            evaluate(sourceText);
-            return;
-        }
         const script = createElement.call(magicDocument, 'script');
+        // carry over all oasis' attributes
         for (let i = 0, len = attributes.length; i < len; i += 1) {
             const attr = attributes.item(i);
             if (!isNull$1(attr) && attr.name.indexOf('on') !== 0) {
-                setAttribute.call(script, attr.name, attr.value);
+                originalSetAttribute.call(script, attr.name, attr.value);
             }
         }
+        // listen for any error events on the script element
+        addEventListenerOriginal.call(script, 'error', (e) => {
+            dispatchEventOriginal.call(elm, new ErrorEvent('error', e));
+        });
+        // listen for any load events on the script element
+        addEventListenerOriginal.call(script, 'load', () => dispatchEventOriginal
+            .call(elm, new Event('load')));
+        // for posterity, set any inline scripts in the script tag
+        // knowing that they may not run if a src attribute was set
         if (sourceText) {
             script.textContent = sourceText;
         }
-        addEventListenerOriginal.call(script, 'error', (e) => dispatchEventOriginal
-            .call(elm, new ErrorEvent('error', e)));
-        addEventListenerOriginal.call(script, 'load', () => dispatchEventOriginal
-            .call(elm, new Event('load')));
-        appendChild.call(magicBody, script);
+        // append the script element to the magic body
+        originalAppendChild.call(magicBody, script);
     }
     function normalizeGlobalNames(names) {
         if (!isNull$1(names) && !isUndefined$1(names)) {
@@ -7266,10 +7269,15 @@
         connectedCallback() {
             // always hide oasis element
             this.setAttribute('hidden', 'true');
-            // ensure that we only execute if there is a src
-            // this allows the slotChange event to pick up inline text
+            // Ensure that we only execute if there is a src
+            // or if textContent has been set programmatically.
+            // In the case of the latter, we set a flag to prevent
+            // the slotchange event from re-executing the same inline script
             const { src } = this;
             if (src && src.length) {
+                execute(this);
+            }
+            else if (this.textContent) {
                 execute(this);
             }
         }
